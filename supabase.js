@@ -2,8 +2,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // 👇 Pega aquí los datos de tu NUEVO proyecto (Supabase > Project Settings > API)
-export const SUPABASE_URL = "PEGA_AQUI_TU_PROJECT_URL";      // ej: https://xxxxxxxx.supabase.co
-export const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_ANON_KEY";    // la clave "anon public"
+export const SUPABASE_URL = "https://kalyxhfeqbtlaifuttss.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthbHl4aGZlcWJ0bGFpZnV0dHNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5NjExNjMsImV4cCI6MjExMDUzNzE2M30.C25AeOjFNpuyiSaoPHSpm_n7HvJYwfNUWxHpTaQvv20";
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const roomCodeFromUrl = (fallback) =>
