@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Emoji Arriero</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="back" href="./">← Games</a>
+<main><h1>Emoji Arriero</h1><p class="muted">Guess the word from the emojis (Spanish or English answers are accepted)</p><div id="app"><p class="muted">Loading…</p></div></main>
+<div id="err" role="alert"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { boot, supabase, patchRoom, esc, $, clamp, shuffle, seeded } from "./kit.js";
+
+const CATS = {
+  gear:   { icon: '🧥', label: 'Gear & clothes',   hint: 'Name the item' },
+  food:   { icon: '🍲', label: 'Food & drink',     hint: 'Name the food or drink' },
+  nature: { icon: '⛰️', label: 'Animals & places', hint: 'Name the animal or place' }
+};
+// [emoji clue, name shown in the answer key, ...accepted alternatives]. Case, accents and a leading "the/el/la" are ignored.
+const RAW = {
+  gear: [
+    ['👜🐄', 'Carriel', 'satchel', 'leather bag'], ['🤠🌾', 'Sombrero aguadeño', 'sombrero', 'straw hat', 'hat'],
+    ['🧥🏔️', 'Ruana', 'poncho'], ['🩴🪢', 'Cotizas', 'cotiza', 'rope sandals', 'sandals'],
+    ['🫏🧺', 'Enjalma', 'pack saddle', 'saddle', 'aparejo'], ['🔪🌿', 'Machete'],
+    ['🪢🌱', 'Cabuya', 'rope', 'fique'], ['🧣🐑', 'Paruma', 'wool poncho'],
+    ['🌧️🧥', 'Capote', 'cape', 'raincoat', 'rain cape'], ['🥥🥣', 'Totuma', 'gourd', 'calabash'],
+    ['🏮⛺', 'Farol', 'lantern', 'lamp'], ['🪢✋', 'Zurriago', 'whip', 'latigo'], ['🫏📦', 'Carga', 'load', 'cargo']
+  ],
+  food: [
+    ['🍯💧', 'Aguapanela', 'agua de panela', 'sugarcane water'], ['🫓🧈', 'Arepa'], ['🫘🥓', 'Fríjoles', 'frijoles', 'beans'],
+    ['☕🌱', 'Café', 'coffee'], ['🍫🥛', 'Chocolate', 'hot chocolate', 'chocolate caliente'],
+    ['🍌🔥', 'Plátano', 'plantain', 'patacon'], ['🍲🐔', 'Sancocho', 'stew', 'soup'],
+    ['🍳🥓🫘', 'Bandeja paisa', 'bandeja'], ['🥣🌽', 'Mazamorra'], ['🫔🌶️', 'Tamal', 'tamale'],
+    ['🟤🍯', 'Panela', 'brown sugar'], ['🥔🧅', 'Papa criolla', 'papa', 'potato']
+  ],
+  nature: [
+    ['🫏⛰️', 'Mula', 'mule'], ['🐂🪵', 'Buey', 'ox'], ['🐴🛤️', 'Caballo', 'horse'], ['🦜🌴', 'Loro', 'parrot'],
+    ['🐻👓', 'Oso de anteojos', 'oso', 'spectacled bear', 'bear'], ['🦅🏔️', 'Cóndor', 'condor'],
+    ['🏔️☁️', 'Montaña', 'mountain'], ['🏞️💧', 'Río', 'river'], ['🛤️🫏', 'Camino de herradura', 'camino', 'trocha', 'mule trail', 'trail'],
+    ['🌉🪢', 'Puente colgante', 'puente', 'hanging bridge', 'suspension bridge'], ['🌳🎋', 'Guadua', 'bamboo'],
+    ['🌴🍃', 'Palma de cera', 'palma', 'wax palm'], ['🐦🌺', 'Colibrí', 'hummingbird']
+  ]
+};
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(the|a|an|el|la|los|las) /, '');
+const CARDS = {};
+Object.entries(RAW).forEach(([cat, arr]) => arr.forEach((r, i) => { const id = cat[0] + i; CARDS[id] = { id, cat, e: r[0], n: r[1], keys: new Set(r.slice(1).map(norm)) }; }));
+const idsOf = cat => Object.keys(CARDS).filter(id => CARDS[id].cat === cat);
+const deck = K => (K.st().deck || []).filter(id => CARDS[id]);
+const mine = K => K.me && K.S.items.find(i => i.player_id === K.me.id);
+const right = (id, t) => !!(t && CARDS[id] && CARDS[id].keys.has(norm(t)));
+const nRight = (K, a) => deck(K).filter(id => right(id, (a || {})[id])).length;
+const order = K => shuffle(deck(K), seeded(K.sid + '|' + K.st().ends_at));
+const answerKey = K => `<div class="box"><h2>Answer key</h2><ul class="res">${deck(K).map(id => `<li class="ok"><span class="em">${CARDS[id].e}</span> ${esc(CARDS[id].n)}</li>`).join('')}</ul></div>`;
+
+await boot({
+  game: 'emoji', room: 'EMOJI-2001', cat0: 'gear', items: true, blank: { deck: [] },
+  key: K => [!!mine(K), K.S.room?.status === 'podium' ? K.S.players.map(p => p.score).join() + K.S.items.length : ''].join('|'),
+  light: K => { const c = $('#count'); if (c) c.textContent = `${K.S.items.length}/${K.S.players.length} submitted`; },
+  tick: K => {
+    const f = $('.ans');
+    if (f && !f.readOnly && K.S.room?.status === 'playing' && K.st().ends_at && K.remaining() <= 0) {
+      document.querySelectorAll('.ans').forEach(el => { el.readOnly = true; el.style.opacity = '.7'; });
+      const n = $('#late'); if (n) n.hidden = false;
+    }
+  },
+  host: (K, s) => {
+    const st = K.st();
+    if (s === 'lobby') return K.lobbyTop() + `<div class="box"><h2>Game panel</h2><p class="muted">1. Choose the category</p>
+      <div class="tiles">${Object.entries(CATS).map(([k, c]) => `<button class="tile ${k === K.cat ? 'on' : ''}" data-cat="${k}"><span class="big">${c.icon}</span>${c.label}</button>`).join('')}</div>
+      <p class="muted">2. Set the cards and the time</p>
+      <div class="row"><label for="cnt"><b>Cards</b></label><input id="cnt" type="number" min="3" max="13" value="8"><label for="secs"><b>Seconds</b></label><input id="secs" type="number" min="30" max="1800" value="180"></div>
+      <div class="row"><button class="main" id="startgame" data-act="start" disabled>Start game</button>${K.clearBtn}</div></div>`;
+    if (s === 'playing') return `<div class="box"><h2>${CATS[st.category]?.icon || ''} ${CATS[st.category]?.label || ''}: ${deck(K).length} cards</h2><div class="timer" id="timer"></div><p class="big" id="count"></p></div><button class="main" data-act="results">Show results</button>`;
+    if (s === 'podium') return `<div class="box"><h2>🏆 Results</h2>${K.rank(p => { const it = K.S.items.find(i => i.player_id === p.id); return ` · ${it ? nRight(K, it.data.answers) : 0}/${deck(K).length}`; })}</div>${answerKey(K)}<div class="row"><button class="main" data-act="reset">New game</button>${K.clearBtn}</div>`;
+    return '<p class="muted">Waiting…</p>';
+  },
+  player: (K, s) => {
+    const hello = `<p class="muted">Playing as ${K.pTag(K.me)}</p>`, st = K.st();
+    if (s === 'lobby') return `${hello}<div class="box"><h2>You're in 🎉</h2><p>Wait for the game to start.</p><div class="chips" id="plist"></div></div>`;
+    if (s === 'playing') {
+      if (mine(K)) return `${hello}<div class="box"><h2>Sent ✓</h2><p>Wait for the host to show the results.</p><div class="timer" id="timer"></div></div>`;
+      const c = CATS[st.category] || CATS.gear;
+      return `${hello}<div class="box"><div class="timer" id="timer"></div><h2>${c.icon} ${c.hint}</h2>
+        <p id="late" class="big" hidden>⏰ Time's up. You can't keep writing, but you can send what you have.</p>
+        ${order(K).map((id, i) => `<div class="ecard"><span class="num">${i + 1}.</span><span class="em">${CARDS[id].e}</span><input class="ans" data-card="${id}" type="text" maxlength="60" placeholder="${c.hint}" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Answer for card ${i + 1}"></div>`).join('')}
+        <button class="main" data-act="submit">Send</button></div>`;
+    }
+    const it = mine(K), ans = it ? it.data.answers || {} : null;
+    const list = ans ? `<div class="box"><h2>Your answers</h2><ul class="res">${order(K).map(id => { const ok = right(id, ans[id]); return `<li class="${ok ? 'ok' : ''}"><span class="em">${CARDS[id].e}</span><span>${ok ? '✓' : '✗'} ${esc(ans[id] || '(empty)')}${ok ? '' : ` → <b>${esc(CARDS[id].n)}</b>`}</span></li>`; }).join('')}</ul></div>` : '<div class="box"><p>You did not send answers this round.</p></div>';
+    return `${hello}<div class="box"><h2>🏆 Results</h2>${K.rank()}</div>${list}`;
+  },
+  actions: K => ({
+    async start() {
+      const count = clamp(parseInt($('#cnt').value, 10) || 8, 3, idsOf(K.cat).length), secs = clamp(parseInt($('#secs').value, 10) || 180, 30, 1800);
+      const d = shuffle(idsOf(K.cat)).slice(0, count);
+      await supabase.from('hub_items').delete().eq('room_code', K.CODE);
+      await supabase.from('hub_players').update({ score: 0 }).eq('room_code', K.CODE);
+      const { error } = await supabase.rpc('hub_start_phase', { p_code: K.CODE, p_status: 'playing', p_secs: secs, p_reset: { category: K.cat, deck: d, count, scored: false } });
+      if (error) K.err(error); K.refresh();
+    },
+    async submit() {
+      if (K.S.room.status !== 'playing') return K.err({ message: 'The game has ended.' });
+      const answers = {}; document.querySelectorAll('.ans').forEach(i => { answers[i.dataset.card] = i.value.trim(); });
+      if (Object.values(answers).every(v => !v)) return K.err({ message: 'There is nothing written to send.' });
+      await supabase.from('hub_items').delete().eq('room_code', K.CODE).eq('player_id', K.me.id);
+      const { error } = await supabase.from('hub_items').insert([{ room_code: K.CODE, player_id: K.me.id, kind: 'answers', data: { answers } }]);
+      if (error) K.err(error); K.refresh();
+    },
+    async results() {
+      await K.refresh();
+      if (!K.st().scored) {
+        const res = await Promise.all(K.S.players.map(p => { const it = K.S.items.find(i => i.player_id === p.id); return supabase.from('hub_players').update({ score: it ? nRight(K, it.data.answers) * 100 : 0 }).eq('id', p.id); }));
+        const bad = res.find(r => r.error); if (bad) return K.err(bad.error);
+      }
+      await patchRoom(K.CODE, { status: 'podium', scored: true }); K.refresh();
+    }
+  })
+});
+</script>
+</body>
+</html>

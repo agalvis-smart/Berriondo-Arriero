@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Draw &amp; Describe</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="back" href="./">← Games</a>
+<main><h1>Draw &amp; Describe</h1><div id="app"><p class="muted">Loading…</p></div></main>
+<div id="err" role="alert"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { boot, supabase, patchRoom, esc, $, clamp, shuffle } from "./kit.js";
+
+// Each card = a drawing + its name. Nothing else. To add a word: add a line here (name, SVG drawn in a 200x140 box).
+const mule = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})" fill="#7a5a3c"><ellipse cx="62" cy="50" rx="44" ry="22"/><path d="M92 40L112 12Q124 8 128 20L126 44Q120 58 104 60Z"/><path d="M108 14L104-6 116 10ZM120 12L128-4 128 16Z"/><circle cx="118" cy="22" r="2.5" fill="#000"/><rect x="26" y="66" width="9" height="44"/><rect x="46" y="68" width="9" height="42"/><rect x="76" y="68" width="9" height="42"/><rect x="94" y="66" width="9" height="44"/><path d="M18 42Q2 52 6 84" fill="none" stroke="#7a5a3c" stroke-width="5"/><rect x="40" y="26" width="50" height="14" rx="5" fill="#9b2c2c"/></g>`;
+const sole = t => `<g transform="${t}" fill="#d8c08a" stroke="#6b4423" stroke-width="3"><path d="M40 15Q62 12 66 50Q70 100 54 122Q38 128 32 104Q26 50 40 15Z"/><path d="M33 68Q50 52 67 68M31 86Q50 72 68 86" fill="none" stroke="#3b2a1a" stroke-width="7"/></g>`;
+const RAW = [
+  ['Carriel', `<path d="M45 62Q100-20 155 62" fill="none" stroke="#4a2c12" stroke-width="9"/><rect x="40" y="62" width="120" height="72" rx="10" fill="#8a5a2b"/><path d="M40 72Q40 62 50 62H150Q160 62 160 72V92Q100 118 40 92Z" fill="#5e3a1a"/><circle cx="100" cy="104" r="7" fill="#e5c07b"/><rect x="52" y="108" width="28" height="20" rx="4" fill="#6f4520"/><rect x="120" y="108" width="28" height="20" rx="4" fill="#6f4520"/>`],
+  ['Sombrero Aguadeño', `<ellipse cx="100" cy="100" rx="90" ry="24" fill="#e8d7a0" stroke="#8a7440" stroke-width="3"/><path d="M52 100Q50 28 100 28Q150 28 148 100Q100 118 52 100Z" fill="#f3e6bb" stroke="#8a7440" stroke-width="3"/><path d="M52 88Q100 108 148 88L148 100Q100 118 52 100Z" fill="#111"/><path d="M70 50Q100 40 130 50M62 68Q100 56 138 68" fill="none" stroke="#c9b27a" stroke-width="2"/>`],
+  ['Cotizas', sole('translate(10 5)') + sole('translate(95 5)')],
+  ['Mulera', mule(4, 40, .7) + mule(100, 40, .7)],
+  ['Enjalma (Pack Saddle)', `<g fill="none" stroke="#6b4423" stroke-width="12" stroke-linecap="round"><path d="M32 118V66Q32 40 56 40H72Q88 40 88 66V118"/><path d="M112 118V66Q112 40 136 40H152Q168 40 168 66V118"/></g><rect x="26" y="96" width="148" height="12" rx="4" fill="#8b5a2b"/><rect x="56" y="30" width="88" height="10" rx="4" fill="#a8743a"/><path d="M88 60H112M88 78H112" stroke="#d8c08a" stroke-width="5"/>`],
+  ['Ruana / Poncho', `<path d="M100 18L42 38 18 124H182L158 38Z" fill="#9b2c2c"/><ellipse cx="100" cy="28" rx="28" ry="11" fill="#1a1a1a"/><rect x="24" y="86" width="152" height="9" fill="#f3e6bb"/><rect x="22" y="102" width="156" height="6" fill="#1a1a1a"/><path d="M18 126H182" stroke="#f3e6bb" stroke-width="7" stroke-dasharray="3 4"/>`],
+  ['Paruma & Capote', `<path d="M10 40H84L92 122H4Z" fill="#6b6f73"/><rect x="8" y="70" width="80" height="7" fill="#d9d9d9"/><path d="M4 124H92" stroke="#d9d9d9" stroke-width="7" stroke-dasharray="3 4"/><ellipse cx="47" cy="40" rx="20" ry="7" fill="#1a1a1a"/><path d="M148 14Q122 14 118 48L108 124H190L178 48Q174 14 148 14Z" fill="#1f3d2b"/><path d="M148 14Q132 18 132 40Q148 58 164 40Q164 18 148 14Z" fill="#0f2418"/><path d="M148 58V124" stroke="#0f2418" stroke-width="3"/>`]
+];
+const CARDS = {}; RAW.forEach((r, i) => { CARDS['c' + i] = { id: 'c' + i, n: r[0], svg: r[1] }; });
+const IDS = Object.keys(CARDS);
+
+const cardHtml = (id, status, attr = '') => {
+  const c = CARDS[id], cls = status === 'valid' ? 'ok' : status === 'invalid' ? 'no' : '';
+  const stamp = status === 'valid' ? '<div class="stamp ok">✓</div>' : status === 'invalid' ? '<div class="stamp no">✕</div>' : '';
+  const t = attr ? 'button type="button"' : 'div', e = attr ? 'button' : 'div';
+  return `<${t} class="dcard ${cls}" ${attr}><div class="pic"><svg viewBox="0 0 200 140" role="img" aria-label="${esc(c.n)}">${c.svg}</svg></div><div class="nm">${esc(c.n)}</div>${stamp}</${e}>`;
+};
+const hand = (K, p) => (K.st().hands && K.st().hands[p.id]) || [];
+const rescore = async (K, grades) => { await Promise.all(K.S.players.map(p => supabase.from('hub_players').update({ score: hand(K, p).filter(c => grades[p.id + ':' + c] === 'valid').length * 100 }).eq('id', p.id))); };
+const gridHtml = K => K.S.players.filter(p => hand(K, p).length).map(p => `<div class="box"><div class="row" style="justify-content:space-between;margin:0 0 10px"><h2 style="margin:0">${K.pTag(p)}</h2><span class="chip">${p.score} pts</span></div><div class="hgrid">${hand(K, p).map(c => cardHtml(c, (K.st().grades || {})[p.id + ':' + c] || 'none', `data-g="${p.id}:${c}"`)).join('')}</div></div>`).join('');
+
+await boot({
+  game: 'draw', room: 'DRAW-2001', blank: { hands: {}, grades: {} },
+  key: K => [K.S.players.map(p => p.id + ':' + p.score).join(), JSON.stringify(K.st().grades || {}), JSON.stringify(K.st().hands || {})].join('|'),
+  tick: K => { if (K.S.room?.status === 'playing' && K.st().ends_at && K.remaining() <= 0) { const n = $('#late'); if (n) n.hidden = false; } },
+  host: (K, s) => {
+    if (s === 'lobby') return K.lobbyTop() + `<div class="box"><h2>Game panel</h2><p class="muted">Each student gets drawing cards (${IDS.length} words in total; if there are more students than cards, some words repeat across phones).</p>
+      <div class="row"><label for="cnt"><b>Cards / person</b></label><input id="cnt" type="number" min="1" max="${IDS.length}" value="2"><label for="secs"><b>Seconds</b></label><input id="secs" type="number" min="30" max="1800" value="180"></div>
+      <div class="row"><button class="main" id="startgame" data-act="start" disabled>Deal the cards</button>${K.clearBtn}</div></div>`;
+    if (s === 'playing') return `<div class="box"><div class="row" style="justify-content:space-between;margin:0"><div><h2 style="margin:0">🎨 Describe the drawing</h2><p class="muted" style="margin:4px 0 0">Click a card to stamp <b>✓ (+100)</b>, <b>✕ (0)</b>, or clear it.</p></div><div class="timer" id="timer"></div></div><p id="late" class="big" hidden>⏰ Time's up!</p></div><button class="main" data-act="results">Finish &amp; show podium</button>${gridHtml(K)}`;
+    return `<div class="box"><h2>🏆 Results</h2>${K.rank()}</div><h2>Cards graded (click to adjust)</h2>${gridHtml(K)}<div class="row"><button class="main" data-act="reset">New game</button>${K.clearBtn}</div>`;
+  },
+  player: (K, s) => {
+    const hello = `<p class="muted">Playing as ${K.pTag(K.me)} · <b>${K.me.score} pts</b></p>`, h = hand(K, K.me), gr = K.st().grades || {};
+    if (s === 'lobby') return `${hello}<div class="box"><h2>You're in 🎉</h2><p>Wait for the host to deal the cards.</p><div class="chips" id="plist"></div></div>`;
+    if (s === 'playing') {
+      if (!h.length) return `${hello}<div class="box"><h2>Spectating this round</h2><p>You joined after the cards were dealt. Listen and guess your classmates' words!</p><div class="timer" id="timer"></div></div>`;
+      return `${hello}<div class="box"><div class="timer" id="timer"></div><h2>Describe it from your seat!</h2><p class="muted">Explain what you see to the class <b>without saying its name</b>. They have to guess it.</p><p id="late" class="big" hidden>⏰ Time's up!</p>${h.map(c => cardHtml(c, gr[K.me.id + ':' + c] || 'none')).join('')}</div>`;
+    }
+    const sum = h.length ? `<div class="box"><h2>Your cards</h2><ul class="res">${h.map(c => { const ok = gr[K.me.id + ':' + c] === 'valid'; return `<li class="${ok ? 'ok' : ''}"><span>${esc(CARDS[c].n)}</span><b style="margin-left:auto">${ok ? '✓ +100 pts' : '✕ 0 pts'}</b></li>`; }).join('')}</ul></div>` : '';
+    return `${hello}<div class="box"><h2>🏆 Results</h2>${K.rank()}</div>${sum}`;
+  },
+  actions: K => ({
+    async start() {
+      await K.refresh();
+      const per = clamp(parseInt($('#cnt').value, 10) || 2, 1, IDS.length), secs = clamp(parseInt($('#secs').value, 10) || 180, 30, 1800);
+      const pool = shuffle(IDS), hands = {};
+      K.S.players.forEach((p, i) => { hands[p.id] = Array.from({ length: per }, (_, j) => pool[(i * per + j) % pool.length]); });
+      await supabase.from('hub_players').update({ score: 0 }).eq('room_code', K.CODE);
+      const { error } = await supabase.rpc('hub_start_phase', { p_code: K.CODE, p_status: 'playing', p_secs: secs, p_reset: { hands, grades: {}, scored: false } });
+      if (error) K.err(error); K.refresh();
+    },
+    async results() { await K.refresh(); await rescore(K, K.st().grades || {}); await patchRoom(K.CODE, { status: 'podium', scored: true }); K.refresh(); }
+  }),
+  click: async (e, K) => {
+    const b = e.target.closest('[data-g]'); if (!b || !K.host) return false;
+    b.disabled = true;
+    const key = b.dataset.g, grades = { ...(K.st().grades || {}) }, cur = grades[key] || 'none';
+    if (cur === 'none') grades[key] = 'valid'; else if (cur === 'valid') grades[key] = 'invalid'; else delete grades[key];
+    await rescore(K, grades); await patchRoom(K.CODE, { grades }); K.refresh();
+    return true;
+  }
+});
+</script>
+</body>
+</html>
