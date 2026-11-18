@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,28 +8,22 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<a class="back" href="./">← Juegos</a>
-<main><h1>STOP! Arriero</h1><p class="muted">Vocabulario de la cultura arriera del Eje Cafetero</p><div id="app"><p class="muted">Cargando…</p></div></main>
+<a class="back" href="./">← Games</a>
+<main><h1>STOP! Arriero</h1><p class="muted">Vocabulary of arriero culture from Colombia's Coffee Region</p><div id="app"><p class="muted">Loading…</p></div></main>
 <div id="err" role="alert"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { boot, supabase, patchRoom, esc, $, clamp } from "./kit.js";
 
-// Letras disponibles (sin K, W, X, Ñ). Edita esta línea para cambiarlas.
+// Available letters (no K, W, X, Ñ). Edit this line to change them.
 const AL = "ABCDEFGHIJLMNOPQRSTUVYZ".split("");
-// [id, nombre en español, nombre en inglés]. Edita o agrega categorías aquí (máx. 9 por defecto).
+// [id, category name]. Edit or add categories here (9 max by default).
 const CATS = [
-  ['ropa', 'Ropa y accesorios', 'Clothing & gear'],
-  ['animal', 'Animales', 'Animals'],
-  ['aperos', 'Herramientas y aperos', 'Tools & tack'],
-  ['comida', 'Comida y bebida', 'Food & drink'],
-  ['planta', 'Plantas y cultivos', 'Plants & crops'],
-  ['lugar', 'Lugares y pueblos', 'Places & towns'],
-  ['oficio', 'Personas y oficios', 'People & jobs'],
-  ['verbo', 'Verbos de camino y trabajo', 'Verbs (action)'],
-  ['paisaje', 'Paisaje y naturaleza', 'Landscape & nature']
+  ['ropa', 'Clothing & gear'], ['animal', 'Animals'], ['aperos', 'Tools & tack'], ['comida', 'Food & drink'], ['planta', 'Plants & crops'],
+  ['lugar', 'Places & towns'], ['oficio', 'People & jobs'], ['verbo', 'Verbs (action)'], ['paisaje', 'Landscape & nature']
 ];
-const cats = K => CATS.slice(0, K.st().cat_count || 8).map(c => ({ id: c[0], name: K.st().lang === 'en' ? c[2] : c[1] }));
+const LANGS = { es: 'Spanish', en: 'English' };
+const cats = K => CATS.slice(0, K.st().cat_count || 8).map(c => ({ id: c[0], name: c[1] }));
 const rl = AL[Math.floor(Math.random() * AL.length)];
 
 const base = c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -37,16 +31,16 @@ const LET = { es: 'A-ZÁÉÍÓÚÜÑ', en: 'A-Z' }, VOW = 'AEIOUYÁÉÍÓÚÜ';
 const shape = (w, lang) => {
   if (!w) return null;
   const L = LET[lang] || LET.es;
-  if (!new RegExp(`^[${L}]+(?:[ '’-][${L}]+)*$`).test(w)) return 'solo letras del idioma elegido';
-  if (w.replace(/[ '’-]/g, '').length < 3) return 'mínimo 3 letras';
-  if (w.split(/[ '’-]/).some(s => s.length > 1 && !new RegExp(`[${VOW}]`).test(s)) || /(.)\1{2,}/.test(w)) return 'no parece una palabra';
+  if (!new RegExp(`^[${L}]+(?:[ '’-][${L}]+)*$`).test(w)) return 'only letters of the chosen language';
+  if (w.replace(/[ '’-]/g, '').length < 3) return 'at least 3 letters';
+  if (w.split(/[ '’-]/).some(s => s.length > 1 && !new RegExp(`[${VOW}]`).test(s)) || /(.)\1{2,}/.test(w)) return "doesn't look like a word";
   return null;
 };
 const judge = (raw, K) => {
   const w = (raw || '').trim().toUpperCase(), L = K.st().letter;
-  if (!w) return { ok: false, why: 'Sin respuesta' };
-  const bad = shape(w, K.st().lang || 'es') || (base(w[0]) !== L && 'no empieza con ' + L);
-  return bad ? { ok: false, why: bad } : { ok: true, why: 'Aceptada' };
+  if (!w) return { ok: false, why: 'No answer' };
+  const bad = shape(w, K.st().lang || 'es') || (base(w[0]) !== L && 'does not start with ' + L);
+  return bad ? { ok: false, why: bad } : { ok: true, why: 'Accepted' };
 };
 const item = (K, p) => K.S.items.find(i => i.player_id === p.id);
 const calc = (K, p) => {
@@ -65,9 +59,9 @@ const review = K => {
   const rows = K.S.players.map(p => {
     const { cells, total } = calc(K, p);
     const tds = cells.map(x => !x.w ? '<td>—</td>' : `<td><button class="${x.ok ? 'y' : 'n'}" data-rv="${p.id}|${x.c.id}" title="${esc(x.j.why)}">${x.ok ? '✓' : '✗'} ${esc(x.w)}</button></td>`).join('');
-    return `<tr><th>${K.pTag(p)}${item(K, p) ? '' : '<br><small>sin enviar</small>'}</th>${tds}<td><b>${total}</b></td></tr>`;
+    return `<tr><th>${K.pTag(p)}${item(K, p) ? '' : '<br><small>not sent</small>'}</th>${tds}<td><b>${total}</b></td></tr>`;
   }).join('');
-  return `<div class="scroll"><table class="rv"><tr><th>Jugador</th>${cats(K).map(c => `<th>${esc(c.name)}</th>`).join('')}<th>Pts</th></tr>${rows}</table></div>`;
+  return `<div class="scroll"><table class="rv"><tr><th>Player</th>${cats(K).map(c => `<th>${esc(c.name)}</th>`).join('')}<th>Pts</th></tr>${rows}</table></div>`;
 };
 async function sendAnswers(K, stop) {
   if (K.sending || !K.me) return;
@@ -83,34 +77,35 @@ async function sendAnswers(K, stop) {
 }
 
 const KK = await boot({
-  game: 'stop', room: 'STOP-2001', ui: 'es', cat0: 'es', items: true,
+  game: 'stop', ui: 'en', cat0: 'es', items: true,
   init: { letter: rl, lang: 'es', cat_count: 8 }, blank: { rev: {} },
   key: K => [!!(K.me && item(K, K.me)), K.host ? K.S.items.length + JSON.stringify(K.st().rev || {}) : '', K.S.room?.status === 'podium' ? K.S.players.map(p => p.score).join() : ''].join('|'),
-  light: K => { const c = $('#count'); if (c) c.textContent = `${K.S.items.length}/${K.S.players.length} enviados`; },
+  light: K => { const c = $('#count'); if (c) c.textContent = `${K.S.items.length}/${K.S.players.length} submitted`; },
   tick: K => { if (!K.host && K.me && K.S.room?.status === 'playing' && K.st().ends_at && K.remaining() <= 0 && !item(K, K.me)) sendAnswers(K, false); },
   leave: (K, prev, next) => { if (!K.host && K.me && prev === 'playing' && next !== 'playing' && !item(K, K.me)) sendAnswers(K, false); },
   host: (K, s) => {
     const st = K.st();
-    if (s === 'lobby') return K.lobbyTop() + `<div class="box"><h2>Panel de la ronda</h2><p class="muted">1. Idioma de las respuestas</p>
-      <div class="tiles"><button class="tile ${K.cat === 'es' ? 'on' : ''}" data-cat="es"><span class="big">🇨🇴</span>Español</button><button class="tile ${K.cat === 'en' ? 'on' : ''}" data-cat="en"><span class="big">🇬🇧</span>English</button></div>
-      <div class="row"><label for="lt"><b>Letra</b></label><select id="lt">${AL.map(l => `<option ${l === (st.letter || rl) ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      <label for="nc"><b>Categorías</b></label><input id="nc" type="number" min="3" max="9" value="8"><label for="secs"><b>Segundos</b></label><input id="secs" type="number" min="30" max="1800" value="180"></div>
-      <div class="row"><button class="main" id="startgame" data-act="start" disabled>¡Iniciar ronda!</button>${K.clearBtn}</div></div>`;
-    if (s === 'playing') return `<div class="box"><div class="row"><div class="letter">${esc(st.letter)}</div><div class="timer" id="timer"></div></div><p class="big" id="count"></p></div><button class="main" data-act="close">🛑 Cerrar ronda y revisar</button>`;
-    if (s === 'stopped') return `<div class="box"><h2>✅ Revisión (letra ${esc(st.letter)})</h2><p class="muted">Haz clic en una respuesta para aceptarla (verde) o rechazarla (rojo). Cada respuesta correcta vale 10 puntos.</p>${review(K)}</div><div class="row"><button class="main" data-act="podium">🏆 Guardar y ver podio</button></div>`;
-    return `<div class="box"><h2>🏆 Podio</h2>${K.rank()}</div><div class="box"><h2>Revisión</h2>${review(K)}</div><div class="row"><button class="main" data-act="reset">Nueva ronda</button>${K.clearBtn}</div>`;
+    if (s === 'lobby') return K.lobbyTop() + `<div class="box"><h2>Round panel</h2><p class="muted">1. Language of the answers</p>
+      <div class="tiles">${Object.entries(LANGS).map(([k, n]) => `<button class="tile ${K.cat === k ? 'on' : ''}" data-cat="${k}"><span class="big">${k === 'es' ? '🇨🇴' : '🇬🇧'}</span>${n}</button>`).join('')}</div>
+      <div class="row"><label for="lt"><b>Letter</b></label><select id="lt">${AL.map(l => `<option ${l === (st.letter || rl) ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <label for="nc"><b>Categories</b></label><input id="nc" type="number" min="3" max="9" value="8"><label for="secs"><b>Seconds</b></label><input id="secs" type="number" min="30" max="1800" value="180"></div>
+      <div class="row"><button class="main" id="startgame" data-act="start" disabled>Start round!</button>${K.clearBtn}</div></div>`;
+    if (s === 'playing') return `<div class="box"><div class="row"><div class="letter">${esc(st.letter)}</div><div class="timer" id="timer"></div></div><p class="big" id="count"></p></div><button class="main" data-act="close">🛑 Close round &amp; review</button>`;
+    if (s === 'stopped') return `<div class="box"><h2>✅ Review (letter ${esc(st.letter)})</h2><p class="muted">Click an answer to accept it (green) or reject it (red). Each accepted answer is worth 10 points.</p>${review(K)}</div><div class="row"><button class="main" data-act="podium">🏆 Save &amp; show podium</button></div>`;
+    return `<div class="box"><h2>🏆 Podium</h2>${K.rank()}</div><div class="box"><h2>Review</h2>${review(K)}</div><div class="row"><button class="main" data-act="reset">New round</button>${K.clearBtn}</div>`;
   },
   player: (K, s) => {
-    const st = K.st(), hello = `<p class="muted">Jugando como ${K.pTag(K.me)} · <b>${K.me.score} pts</b></p>`;
-    if (s === 'lobby') return `${hello}<div class="box"><h2>Ya estás dentro 🎉</h2><p>Espera a que el profesor inicie la ronda.</p><div class="chips" id="plist"></div></div>`;
+    const st = K.st(), hello = `<p class="muted">Playing as ${K.pTag(K.me)} · <b>${K.me.score} pts</b></p>`;
+    if (s === 'lobby') return `${hello}<div class="box"><h2>You're in 🎉</h2><p>Wait for the teacher to start the round.</p><div class="chips" id="plist"></div></div>`;
     if (s === 'playing') {
-      if (item(K, K.me)) return `${hello}<div class="box"><h2>Enviado ✓</h2><p>Espera la revisión del profesor.</p><div class="timer" id="timer"></div></div>`;
+      if (item(K, K.me)) return `${hello}<div class="box"><h2>Sent ✓</h2><p>Wait for the teacher's review.</p><div class="timer" id="timer"></div></div>`;
       return `${hello}<div class="box"><div class="row"><div class="letter">${esc(st.letter)}</div><div class="timer" id="timer"></div></div>
+        <p class="muted">Answers in ${LANGS[st.lang || 'es']}.</p>
         ${cats(K).map((c, i) => `<div class="ecard"><span class="num">${i + 1}.</span><b class="lab">${esc(c.name)}</b><input class="ans" data-id="${c.id}" type="text" maxlength="30" placeholder="${esc(st.letter)}…" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="${esc(c.name)}"></div>`).join('')}
-        <button class="main" data-act="send">🛑 ¡STOP! Enviar respuestas</button></div>`;
+        <button class="main" data-act="send">🛑 STOP! Send answers</button></div>`;
     }
-    if (s === 'stopped') return `${hello}<div class="box"><h2>🛑 Ronda cerrada</h2><p>Tus respuestas se enviaron. Espera la revisión del profesor.</p></div>`;
-    return `${hello}<div class="box"><h2>🏆 Podio</h2>${K.rank()}</div><div class="box"><h2>Tus respuestas</h2><ul class="res">${calc(K, K.me).cells.map(x => `<li class="${x.ok ? 'ok' : ''}"><b>${esc(x.c.name)}:</b> ${x.w ? `${x.ok ? '✓' : '✗'} ${esc(x.w)}${x.ok ? '' : ' (' + esc(x.j.why) + ')'}` : '—'}</li>`).join('')}</ul></div>`;
+    if (s === 'stopped') return `${hello}<div class="box"><h2>🛑 Round closed</h2><p>Your answers were sent. Wait for the teacher's review.</p></div>`;
+    return `${hello}<div class="box"><h2>🏆 Podium</h2>${K.rank()}</div><div class="box"><h2>Your answers</h2><ul class="res">${calc(K, K.me).cells.map(x => `<li class="${x.ok ? 'ok' : ''}"><b>${esc(x.c.name)}:</b> ${x.w ? `${x.ok ? '✓' : '✗'} ${esc(x.w)}${x.ok ? '' : ' (' + esc(x.j.why) + ')'}` : '—'}</li>`).join('')}</ul></div>`;
   },
   actions: K => ({
     async start() {
@@ -123,7 +118,7 @@ const KK = await boot({
     async send() {
       const lang = K.st().lang || 'es', bad = [];
       document.querySelectorAll('.ans').forEach(i => { const r = shape(i.value.trim().toUpperCase(), lang); i.style.borderColor = r ? '#dc2626' : ''; if (r) bad.push(`• ${i.getAttribute('aria-label')}: ${r}`); });
-      if (bad.length) { alert('⛔ Corrige estas casillas (o déjalas vacías):\n\n' + bad.join('\n')); return; }
+      if (bad.length) { alert('⛔ Fix these boxes (or leave them empty):\n\n' + bad.join('\n')); return; }
       await sendAnswers(K, true);
     },
     async close() { await patchRoom(K.CODE, { status: 'stopped' }); K.refresh(); },
@@ -139,7 +134,7 @@ const KK = await boot({
     return true;
   }
 });
-// Mientras escribe: mayúsculas y solo letras del idioma
+// While typing: uppercase and only letters of the chosen language
 document.addEventListener('input', e => {
   const el = e.target.closest?.('.ans'); if (!el) return;
   const L = LET[KK.st().lang || 'es'] || LET.es;
