@@ -1,7 +1,7 @@
 :root{--bg:#000;--fg:#fff;--red:#d42a1a;--redl:#ff6b5b;--gray:#5b6063;--dark:#1c1c1c;--muted:#b8bcbf;--ok:#4ade80;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.4;border-top:10px solid var(--gray)}
-body[data-phase=playing],body[data-phase=stopped]{border-top-color:var(--red)}body[data-phase=podium]{border-top-color:#fff}
+body[data-phase=playing],body[data-phase=stopped],body[data-phase=grading]{border-top-color:var(--red)}body[data-phase=podium]{border-top-color:#fff}
 main{max-width:860px;margin:0 auto;padding:56px 18px 90px}
 h1{font-size:clamp(1.8rem,6vw,2.8rem);font-weight:800;margin:0 0 6px;line-height:1.05}
 h2{font-size:1.3rem;margin:0 0 10px}
