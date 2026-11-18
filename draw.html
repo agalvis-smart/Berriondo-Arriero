@@ -40,24 +40,38 @@ const hand = (K, p) => (K.st().hands && K.st().hands[p.id]) || [];
 const rescore = async (K, grades) => { await Promise.all(K.S.players.map(p => supabase.from('hub_players').update({ score: hand(K, p).filter(c => grades[p.id + ':' + c] === 'valid').length * 100 }).eq('id', p.id))); };
 const gridHtml = K => K.S.players.filter(p => hand(K, p).length).map(p => `<div class="box"><div class="row" style="justify-content:space-between;margin:0 0 10px"><h2 style="margin:0">${K.pTag(p)}</h2><span class="chip">${p.score} pts</span></div><div class="hgrid">${hand(K, p).map(c => cardHtml(c, (K.st().grades || {})[p.id + ':' + c] || 'none', `data-g="${p.id}:${c}"`)).join('')}</div></div>`).join('');
 
+const done = p => p.status === 'done';
+const active = K => K.S.players.filter(p => hand(K, p).length);   // students who were dealt cards
+const allDone = K => { const a = active(K); return a.length > 0 && a.every(done); };
+
 await boot({
-  game: 'draw', room: 'DRAW-2001', blank: { hands: {}, grades: {} },
-  key: K => [K.S.players.map(p => p.id + ':' + p.score).join(), JSON.stringify(K.st().grades || {}), JSON.stringify(K.st().hands || {})].join('|'),
+  game: 'draw', blank: { hands: {}, grades: {} },
+  key: K => [K.S.players.map(p => p.id + ':' + p.score + ':' + p.status).join(), JSON.stringify(K.st().grades || {}), JSON.stringify(K.st().hands || {})].join('|'),
+  light: K => {
+    const c = $('#count'), r = $('#reveal'), a = active(K);
+    if (c) c.textContent = `${a.filter(done).length}/${a.length} finished`;
+    if (r) r.disabled = !allDone(K);
+  },
   tick: K => { if (K.S.room?.status === 'playing' && K.st().ends_at && K.remaining() <= 0) { const n = $('#late'); if (n) n.hidden = false; } },
   host: (K, s) => {
     if (s === 'lobby') return K.lobbyTop() + `<div class="box"><h2>Game panel</h2><p class="muted">Each student gets drawing cards (${IDS.length} words in total; if there are more students than cards, some words repeat across phones).</p>
       <div class="row"><label for="cnt"><b>Cards / person</b></label><input id="cnt" type="number" min="1" max="${IDS.length}" value="2"><label for="secs"><b>Seconds</b></label><input id="secs" type="number" min="30" max="1800" value="180"></div>
       <div class="row"><button class="main" id="startgame" data-act="start" disabled>Deal the cards</button>${K.clearBtn}</div></div>`;
-    if (s === 'playing') return `<div class="box"><div class="row" style="justify-content:space-between;margin:0"><div><h2 style="margin:0">🎨 Describe the drawing</h2><p class="muted" style="margin:4px 0 0">Click a card to stamp <b>✓ (+100)</b>, <b>✕ (0)</b>, or clear it.</p></div><div class="timer" id="timer"></div></div><p id="late" class="big" hidden>⏰ Time's up!</p></div><button class="main" data-act="results">Finish &amp; show podium</button>${gridHtml(K)}`;
+    if (s === 'playing') return `<div class="box"><div class="row" style="justify-content:space-between;margin:0"><div><h2 style="margin:0">🎨 Students are describing…</h2><p class="muted" style="margin:4px 0 0">The images stay hidden until every student has pressed "I'm done".</p></div><div class="timer" id="timer"></div></div><p id="late" class="big" hidden>⏰ Time's up!</p><p class="big" id="count"></p>
+      <div class="chips">${active(K).map(p => `<span class="chip">${K.pTag(p)} ${done(p) ? '✓' : '…'} <button class="x" data-kick="${p.id}" aria-label="Remove">✕</button></span>`).join('')}</div></div>
+      <button class="main" id="reveal" data-act="reveal" disabled>Reveal images &amp; grade</button>`;
+    if (s === 'grading') return `<div class="box"><h2>✅ Grade the answers</h2><p class="muted">Everyone has finished. Click a card to mark <b>✓ (+100)</b> or <b>✕ (0)</b>; click again to clear it.</p></div><button class="main" data-act="results">Show podium</button>${gridHtml(K)}`;
     return `<div class="box"><h2>🏆 Results</h2>${K.rank()}</div><h2>Cards graded (click to adjust)</h2>${gridHtml(K)}<div class="row"><button class="main" data-act="reset">New game</button>${K.clearBtn}</div>`;
   },
   player: (K, s) => {
     const hello = `<p class="muted">Playing as ${K.pTag(K.me)} · <b>${K.me.score} pts</b></p>`, h = hand(K, K.me), gr = K.st().grades || {};
-    if (s === 'lobby') return `${hello}<div class="box"><h2>You're in 🎉</h2><p>Wait for the host to deal the cards.</p><div class="chips" id="plist"></div></div>`;
+    if (s === 'lobby') return `${hello}<div class="box"><h2>You're in 🎉</h2><p>Wait for the teacher to deal the cards.</p><div class="chips" id="plist"></div></div>`;
     if (s === 'playing') {
       if (!h.length) return `${hello}<div class="box"><h2>Spectating this round</h2><p>You joined after the cards were dealt. Listen and guess your classmates' words!</p><div class="timer" id="timer"></div></div>`;
-      return `${hello}<div class="box"><div class="timer" id="timer"></div><h2>Describe it from your seat!</h2><p class="muted">Explain what you see to the class <b>without saying its name</b>. They have to guess it.</p><p id="late" class="big" hidden>⏰ Time's up!</p>${h.map(c => cardHtml(c, gr[K.me.id + ':' + c] || 'none')).join('')}</div>`;
+      if (done(K.me)) return `${hello}<div class="box"><h2>Done ✓</h2><p>Waiting for the rest of the class to finish…</p><div class="timer" id="timer"></div></div>`;
+      return `${hello}<div class="box"><div class="timer" id="timer"></div><h2>Describe it from your seat!</h2><p class="muted">Explain what you see to the class <b>without saying its name</b>. They have to guess it.</p><p id="late" class="big" hidden>⏰ Time's up!</p>${h.map(c => cardHtml(c, 'none')).join('')}<button class="main" data-act="done">I'm done</button></div>`;
     }
+    if (s === 'grading') return `${hello}<div class="box"><h2>Grading…</h2><p>Waiting for the teacher to check the answers.</p></div>`;
     const sum = h.length ? `<div class="box"><h2>Your cards</h2><ul class="res">${h.map(c => { const ok = gr[K.me.id + ':' + c] === 'valid'; return `<li class="${ok ? 'ok' : ''}"><span>${esc(CARDS[c].n)}</span><b style="margin-left:auto">${ok ? '✓ +100 pts' : '✕ 0 pts'}</b></li>`; }).join('')}</ul></div>` : '';
     return `${hello}<div class="box"><h2>🏆 Results</h2>${K.rank()}</div>${sum}`;
   },
@@ -67,14 +81,20 @@ await boot({
       const per = clamp(parseInt($('#cnt').value, 10) || 2, 1, IDS.length), secs = clamp(parseInt($('#secs').value, 10) || 180, 30, 1800);
       const pool = shuffle(IDS), hands = {};
       K.S.players.forEach((p, i) => { hands[p.id] = Array.from({ length: per }, (_, j) => pool[(i * per + j) % pool.length]); });
-      await supabase.from('hub_players').update({ score: 0 }).eq('room_code', K.CODE);
+      await supabase.from('hub_players').update({ score: 0, status: 'joined' }).eq('room_code', K.CODE);
       const { error } = await supabase.rpc('hub_start_phase', { p_code: K.CODE, p_status: 'playing', p_secs: secs, p_reset: { hands, grades: {}, scored: false } });
       if (error) K.err(error); K.refresh();
+    },
+    async done() { const { error } = await supabase.from('hub_players').update({ status: 'done' }).eq('id', K.me.id); if (error) K.err(error); K.refresh(); },
+    async reveal() {
+      await K.refresh();
+      if (!allDone(K)) return K.err({ message: 'Not everyone has finished yet.' });
+      await patchRoom(K.CODE, { status: 'grading' }); K.refresh();
     },
     async results() { await K.refresh(); await rescore(K, K.st().grades || {}); await patchRoom(K.CODE, { status: 'podium', scored: true }); K.refresh(); }
   }),
   click: async (e, K) => {
-    const b = e.target.closest('[data-g]'); if (!b || !K.host) return false;
+    const b = e.target.closest('[data-g]'); if (!b || !K.host || !['grading', 'podium'].includes(K.S.room.status)) return false;
     b.disabled = true;
     const key = b.dataset.g, grades = { ...(K.st().grades || {}) }, cur = grades[key] || 'none';
     if (cur === 'none') grades[key] = 'valid'; else if (cur === 'valid') grades[key] = 'invalid'; else delete grades[key];
