@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Juegos de clase 2</title>
+<title>Class Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
 <style>
-  /* Paleta: cambia solo estas líneas para recolorear toda la página */
+  /* Palette: change only these lines to recolor the whole page */
   :root { --bg:#000000; --fg:#ffffff; --red:#d42a1a; --red-l:#ff6b5b; --gray:#5b6063; --dark:#1c1c1c; --shadow:#3a3d3f; --muted:#b8bcbf; color-scheme: dark; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family:'Bricolage Grotesque',system-ui,sans-serif; line-height:1.4; }
@@ -17,15 +17,17 @@
   header .wrap { padding-top:44px; padding-bottom:34px; }
   .kicker { display:inline-block; background:var(--red); color:#fff; font-weight:800; font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; padding:3px 10px; margin-bottom:16px; }
   h1 { font-size:clamp(2.4rem,8vw,4.5rem); font-weight:800; line-height:1; margin:0 0 12px; letter-spacing:-.02em; }
-  .sub { color:#f1f1f1; font-size:1.1rem; margin:0; max-width:46ch; }
+  .sub { color:#f1f1f1; font-size:1.1rem; margin:0; max-width:52ch; }
   main.wrap { padding-top:32px; padding-bottom:56px; }
-  .bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:0 0 32px; }
+  .bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:0 0 24px; }
   .bar label { font-weight:800; color:var(--red-l); text-transform:uppercase; letter-spacing:.06em; }
   .bar input { font:inherit; padding:8px 12px; border:3px solid #fff; background:var(--dark); color:#fff; width:210px; }
   .bar input::placeholder { color:var(--muted); }
   .bar input:focus-visible { outline:3px solid var(--red-l); outline-offset:2px; }
   .status { margin-left:auto; font-size:.9rem; color:var(--muted); }
   .warn { border:3px solid #fff; border-left:12px solid var(--red); background:var(--dark); padding:12px 16px; margin:0 0 28px; font-weight:500; }
+  .now { border:3px solid var(--red-l); background:var(--dark); padding:12px 16px; margin:0 0 24px; font-weight:800; }
+  .now a { color:#fff; background:var(--red); padding:4px 12px; margin-left:8px; text-decoration:none; border:2px solid #fff; }
   .grid { display:grid; gap:24px; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }
   .card { display:flex; flex-direction:column; gap:10px; min-height:210px; padding:20px; border:3px solid #fff;
           box-shadow:6px 6px 0 var(--shadow); text-decoration:none; color:#fff; transition:transform .12s, box-shadow .12s; }
@@ -41,6 +43,13 @@
   .c0 .go { background:var(--bg); }
   .soon { filter:grayscale(1); opacity:.5; box-shadow:none !important; border-style:dashed; }
   .soon .go { background:transparent; color:inherit; border:2px solid currentColor; }
+  .board { margin-top:44px; border:3px solid #fff; box-shadow:6px 6px 0 var(--shadow); background:var(--dark); padding:18px; }
+  .board h2 { margin:0 0 4px; font-size:1.6rem; }
+  .board .hint { color:var(--muted); margin:0 0 12px; }
+  .rank { display:flex; gap:12px; padding:10px 0; border-bottom:2px solid #fff; font-weight:800; font-size:1.1rem; }
+  .rank .s { margin-left:auto; text-align:right; }
+  .rank small { display:block; font-weight:500; color:var(--muted); }
+  .board button { font:inherit; color:inherit; cursor:pointer; border:3px solid #fff; background:transparent; font-weight:800; padding:8px 16px; margin-top:16px; }
   footer { border-top:4px solid var(--gray); padding:14px 0 28px; color:var(--muted); font-size:.9rem; }
   footer b { color:var(--red-l); }
 </style>
@@ -48,73 +57,107 @@
 <body>
 <header>
   <div class="wrap">
-    <span class="kicker">Material de clase</span>
-    <h1>Juegos de clase 2</h1>
-    <p class="sub">Elige un juego de la cultura arriera del Eje Cafetero. Los estudiantes entran desde este mismo enlace.</p>
+    <span class="kicker">Class material</span>
+    <h1>Class Games</h1>
+    <p class="sub">Arriero culture of the Coffee Region. Students join from this same link and their points add up across all the games.</p>
   </div>
 </header>
 <main class="wrap">
   <div id="warn"></div>
   <div class="bar">
-    <label for="room">Sala</label>
-    <input id="room" placeholder="Vacío = sala por defecto de cada juego" autocomplete="off" maxlength="40">
-    <span class="status" id="status" role="status">Lista local</span>
+    <label for="room">Class</label>
+    <input id="room" placeholder="CLASS-2001" autocomplete="off" maxlength="40">
+    <span class="status" id="status" role="status">Local list</span>
   </div>
+  <div id="now"></div>
   <div class="grid" id="grid"></div>
+  <section class="board">
+    <h2>🏅 Class standings</h2>
+    <p class="hint">Total of all games played in this class. Points are added when a round reaches the podium.</p>
+    <div id="table"><p class="hint">Loading…</p></div>
+    <button id="clr" type="button">Reset class points</button>
+  </section>
 </main>
-<footer><div class="wrap"><b>●</b> Página madre del material de clase. Aquí se irán sumando los nuevos juegos.</div></footer>
+<footer><div class="wrap"><b>●</b> Home page of the class material. New games will be added here.</div></footer>
 <script>
   // 1) Built-in catalog: the menu always works, even offline or without the database.
   //    To add a game: add a line here + a row in hub_games (setup_database.sql) + a .html file in this folder.
   var CATALOG = [
-    { id:'stop',  title:'STOP! Arriero',    description:'Scattergories con vocabulario de la cultura arriera del Eje Cafetero.', emoji:'🛑', color:'#fb7185', path:'stop.html',  enabled:true, sort_order:10 },
-    { id:'emoji', title:'Emoji Arriero',    description:'Adivina las palabras de la cultura arriera a partir de los emojis.',     emoji:'🫏', color:'#4ade80', path:'emoji.html', enabled:true, sort_order:20 },
-    { id:'draw',  title:'Draw & Describe',  description:'Mira el dibujo y su nombre, descríbelo y que tu clase adivine la palabra.', emoji:'🎨', color:'#f97316', path:'draw.html',  enabled:true, sort_order:30 }
+    { id:'stop',  title:'STOP! Arriero',   description:'Scattergories with vocabulary from the arriero culture of the Coffee Region.', emoji:'🛑', color:'#fb7185', path:'stop.html',  enabled:true, sort_order:10 },
+    { id:'emoji', title:'Emoji Arriero',   description:'Guess arriero-culture words from the emojis.',                                  emoji:'🫏', color:'#4ade80', path:'emoji.html', enabled:true, sort_order:20 },
+    { id:'draw',  title:'Draw & Describe', description:'Describe the drawing without saying its name and let your class guess it.',     emoji:'🎨', color:'#f97316', path:'draw.html',  enabled:true, sort_order:30 }
   ];
   var games = CATALOG.slice();
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var roomEl = document.getElementById('room');
+  var saved = ''; try { saved = new URLSearchParams(location.search).get('class') || localStorage.getItem('hub_class') || ''; } catch (e) {}
+  roomEl.value = saved;
+  var cls = function () { return roomEl.value.trim() || 'CLASS-2001'; };
 
   function render() {
-    var room = document.getElementById('room').value.trim();
-    var q = room ? '?room=' + encodeURIComponent(room) : '';
+    var q = '?class=' + encodeURIComponent(cls());
     document.getElementById('grid').innerHTML = games.map(function (g, i) {
       var c = 'c' + (i % 3);
       var inner = '<span class="emoji">' + esc(g.emoji) + '</span><h2>' + esc(g.title) + '</h2><p>' + esc(g.description) + '</p>';
       return g.enabled
-        ? '<a class="card ' + c + '" href="' + esc(g.path) + q + '">' + inner + '<span class="go">Jugar</span></a>'
-        : '<div class="card soon ' + c + '">' + inner + '<span class="go">Próximamente</span></div>';
+        ? '<a class="card ' + c + '" href="' + esc(g.path) + q + '">' + inner + '<span class="go">Play</span></a>'
+        : '<div class="card soon ' + c + '">' + inner + '<span class="go">Coming soon</span></div>';
     }).join('');
   }
-  document.getElementById('room').addEventListener('input', render);
+  roomEl.addEventListener('input', function () { try { localStorage.setItem('hub_class', cls()); } catch (e) {} render(); });
+  try { localStorage.setItem('hub_class', cls()); } catch (e) {}
   render();
 
   if (location.protocol === 'file:') {
-    document.getElementById('warn').innerHTML = '<p class="warn">Abriste el archivo directamente desde tu computador. El menú funciona, pero los juegos necesitan un servidor: ábrelo desde GitHub Pages o con <code>python -m http.server</code> dentro de esta carpeta.</p>';
+    document.getElementById('warn').innerHTML = '<p class="warn">You opened the file directly from your computer. The menu works, but the games need a server: open it from GitHub Pages or run <code>python -m http.server</code> inside this folder.</p>';
   }
 </script>
 <script type="module">
-  // 2) Optional: sync the list with the database (new games appear without editing this page).
-  var status = document.getElementById('status');
+  // 2) Optional: sync the game list and the class standings with the database.
+  var status = document.getElementById('status'), sb = null;
+  var timeout = function (p) { return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, 6000); })]); };
+  var sum = function (r) { return Object.values(r.results || {}).reduce(function (a, b) { return a + b; }, 0); };
+
+  async function loadBoard() {
+    if (!sb) return;
+    var out = document.getElementById('table');
+    var s = await sb.from('hub_scores').select('*').eq('class_code', cls());
+    if (s.error) { out.innerHTML = '<p class="hint">' + esc(s.error.message) + '</p>'; return; }
+    var rows = (s.data || []).filter(function (r) { return sum(r) > 0 || Object.keys(r.results || {}).length; }).sort(function (a, b) { return sum(b) - sum(a); });
+    out.innerHTML = rows.length ? rows.map(function (r, i) {
+      var by = {}; Object.keys(r.results || {}).forEach(function (k) { var g = k.split(':')[0]; by[g] = (by[g] || 0) + r.results[k]; });
+      var parts = Object.keys(by).map(function (g) { var t = games.filter(function (x) { return x.id === g; })[0]; return esc(t ? t.title : g) + ' ' + by[g]; }).join(' · ');
+      return '<div class="rank"><span>' + (['🥇', '🥈', '🥉'][i] || (i + 1) + '.') + '</span><span>' + esc(r.avatar || '🙂') + ' ' + esc(r.name) + '</span><span class="s">' + sum(r) + ' pts<small>' + parts + '</small></span></div>';
+    }).join('') : '<p class="hint">No points yet.</p>';
+    var c = await sb.from('hub_classes').select('*').eq('code', cls()).maybeSingle();
+    var cur = c.data && games.filter(function (x) { return x.id === c.data.current_game && x.enabled; })[0];
+    document.getElementById('now').innerHTML = cur ? '<div class="now">Your teacher has opened: ' + esc(cur.emoji) + ' ' + esc(cur.title) + '<a href="' + esc(cur.path) + '?class=' + encodeURIComponent(cls()) + '">Join now</a></div>' : '';
+  }
+
   try {
-    var mod = await Promise.race([
-      import('./supabase.js'),
-      new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, 6000); })
-    ]);
-    var res = await Promise.race([
-      mod.supabase.from('hub_games').select('*').order('sort_order'),
-      new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, 6000); })
-    ]);
+    var mod = await timeout(import('./supabase.js'));
+    sb = mod.supabase;
+    var res = await timeout(sb.from('hub_games').select('*').order('sort_order'));
     if (res.error) throw res.error;
     if (res.data && res.data.length) {
-      games = res.data;
-      render();
-      status.textContent = '● Conectado a la base de datos';
+      games = res.data; render();
+      status.textContent = '● Connected to the database';
     } else {
-      status.textContent = 'Base de datos vacía: ejecuta setup_database.sql';
+      status.textContent = 'Empty database: run setup_database.sql';
     }
+    await loadBoard();
+    setInterval(loadBoard, 5000);
+    roomEl.addEventListener('input', loadBoard);
+    document.getElementById('clr').addEventListener('click', async function () {
+      if (!confirm('Delete ALL the points of class ' + cls() + '? This cannot be undone.')) return;
+      var d = await sb.from('hub_scores').delete().eq('class_code', cls());
+      if (d.error) alert(d.error.message);
+      loadBoard();
+    });
   } catch (e) {
     console.warn('Hub database unavailable:', e);
-    status.textContent = '○ Sin base de datos (' + (e && e.message ? e.message : 'error') + '). Usando lista local.';
+    status.textContent = '○ No database (' + (e && e.message ? e.message : 'error') + '). Using the local list.';
+    document.getElementById('table').innerHTML = '<p class="hint">Connect the database to see the standings.</p>';
   }
 </script>
 </body>
